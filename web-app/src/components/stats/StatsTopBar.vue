@@ -54,10 +54,15 @@ const stats = computed(() => {
 
   const s = bookStats.value
 
-  // Pre-compute formatted values to avoid duplicate toLocaleString() calls
-  const formattedWords = s.total_words.toLocaleString()
-  const formattedCompletionRate = s.completion_rate.toFixed(DECIMAL_PRECISION)
-  const formattedAvgWords = s.avg_chapter_words.toLocaleString()
+  const totalWords = Number(s.total_words ?? 0)
+  const rate = Number(s.completion_rate ?? 0)
+  const avgWords = Number(s.avg_chapter_words ?? 0)
+  const done = Number(s.completed_chapters ?? 0)
+  const total = Number(s.total_chapters ?? 0)
+
+  const formattedWords = totalWords.toLocaleString()
+  const formattedCompletionRate = rate.toFixed(DECIMAL_PRECISION)
+  const formattedAvgWords = avgWords.toLocaleString()
 
   return [
     {
@@ -69,8 +74,8 @@ const stats = computed(() => {
     {
       key: 'chapters',
       label: '完成章节',
-      value: `${s.completed_chapters}/${s.total_chapters}`,
-      tooltip: `已完成 ${s.completed_chapters} 章，共 ${s.total_chapters} 章`
+      value: `${done}/${total}`,
+      tooltip: `已完成 ${done} 章，共 ${total} 章`
     },
     {
       key: 'completion',
@@ -108,7 +113,8 @@ function formatStatsError(err: unknown): string {
   return String(err)
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | undefined): string {
+  if (!dateStr) return '—'
   try {
     const date = new Date(dateStr)
     const now = new Date()

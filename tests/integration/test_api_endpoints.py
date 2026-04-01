@@ -130,7 +130,7 @@ def test_chapter_operations():
     })
 
     # 获取章节列表（应该为空）
-    response = client.get("/api/v1/chapters/novels/test-novel-5/chapters")
+    response = client.get("/api/v1/novels/test-novel-5/chapters")
     assert response.status_code == 200
     assert len(response.json()) == 0
 

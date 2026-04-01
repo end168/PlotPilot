@@ -126,11 +126,12 @@
 
 响应格式：`{ "data": <payload>, ... }`（`SuccessResponse`）。
 
+**单书汇总（顶栏字数、完成率等）**：请用 **§3.2** `GET /api/v1/novels/{novel_id}/statistics`（`novelApi.getNovelStatistics`），与 Chapter 仓储一致；勿再依赖 `/api/stats/book/{slug}` 读 `novels/*.json` 内嵌章节。
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/stats/global` | 全局统计 |
-| GET | `/api/stats/book/{slug}` | 单书统计（参数名仍为 **slug**，与 `novel_id` 同值） |
-| GET | `/api/stats/book/{slug}/chapter/{chapter_id}` | 单章统计 |
+| GET | `/api/stats/book/{slug}/chapter/{chapter_id}` | 单章统计（legacy） |
 | GET | `/api/stats/book/{slug}/progress` | 写作进度时间序列（query：`days`，默认 30） |
 
 ---

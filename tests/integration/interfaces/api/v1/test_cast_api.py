@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from infrastructure.persistence.storage.file_storage import FileStorage
 from infrastructure.persistence.repositories.file_novel_repository import FileNovelRepository
+from infrastructure.persistence.repositories.file_chapter_repository import FileChapterRepository
 from infrastructure.persistence.repositories.file_cast_repository import FileCastRepository
 from application.services.novel_service import NovelService
 from application.services.cast_service import CastService
@@ -38,6 +39,7 @@ def setup_test_env(tmp_path):
     # Create test storage and repositories
     storage = FileStorage(test_data)
     novel_repo = FileNovelRepository(storage)
+    chapter_repo = FileChapterRepository(storage)
     cast_repo = FileCastRepository(storage)
 
     # Create services

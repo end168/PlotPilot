@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { statsApi } from '../api/stats'
+import { novelApi } from '../api/novel'
 import type { GlobalStats, BookStats, ChapterStats, WritingProgress } from '../types/api'
 
 export const useStatsStore = defineStore('stats', () => {
@@ -90,7 +91,7 @@ export const useStatsStore = defineStore('stats', () => {
     error.value = null
 
     try {
-      const data = await statsApi.getBook(slug)
+      const data = await novelApi.getNovelStatistics(slug)
       bookStatsCache.value.set(slug, data)
       return data
     } catch (err) {

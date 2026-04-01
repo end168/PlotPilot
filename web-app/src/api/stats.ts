@@ -1,5 +1,6 @@
 import axios from 'axios'
-import type { GlobalStats, BookStats, ChapterStats, WritingProgress } from '../types/api'
+import type { GlobalStats, ChapterStats, WritingProgress } from '../types/api'
+import { novelApi } from './novel'
 
 const request = axios.create({
   baseURL: '/api',
@@ -33,13 +34,6 @@ export const statsApi = {
   getGlobal: () => request.get<GlobalStats>('/stats/global') as Promise<GlobalStats>,
 
   /**
-   * Get statistics for a specific book
-   * GET /stats/book/{slug}
-   */
-  getBook: (slug: string) =>
-    request.get<BookStats>(`/stats/book/${enc(slug)}`) as Promise<BookStats>,
-
-  /**
    * Get statistics for a specific chapter
    * GET /stats/book/{slug}/chapter/{chapterId}
    */
@@ -56,12 +50,11 @@ export const statsApi = {
     }) as Promise<WritingProgress[]>,
 
   /**
-   * Fetch book stats and progress in parallel
-   * Combines getBook() and getProgress() for efficient data loading
+   * 书目统计（v1 novel statistics）+ 写作进度（legacy /api/stats）
    */
   getBookAllStats: async (slug: string, days = 30) => {
     const [bookStats, progress] = await Promise.all([
-      statsApi.getBook(slug),
+      novelApi.getNovelStatistics(slug),
       statsApi.getProgress(slug, days),
     ])
     return { bookStats, progress }

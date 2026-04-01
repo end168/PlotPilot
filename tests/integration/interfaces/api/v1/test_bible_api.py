@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 from infrastructure.persistence.storage.file_storage import FileStorage
 from infrastructure.persistence.repositories.file_novel_repository import FileNovelRepository
+from infrastructure.persistence.repositories.file_chapter_repository import FileChapterRepository
 from infrastructure.persistence.repositories.file_bible_repository import FileBibleRepository
 from application.services.novel_service import NovelService
 from application.services.bible_service import BibleService
@@ -41,6 +42,7 @@ def setup_test_env(tmp_path):
     # 创建测试存储和仓储
     storage = FileStorage(test_data)
     novel_repo = FileNovelRepository(storage)
+    chapter_repo = FileChapterRepository(storage)
     bible_repo = FileBibleRepository(storage)
 
     # 创建服务
