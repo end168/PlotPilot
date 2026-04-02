@@ -18,7 +18,7 @@
       </n-space>
     </div>
 
-    <n-tabs v-model:value="viewMode" type="line" size="small" animated class="kb-tabs">
+    <n-tabs v-model:value="viewMode" type="line" size="medium" animated class="kb-tabs">
       <n-tab-pane name="graph" tab="图谱">
         <div v-if="emptyHint" class="kb-empty">
           <n-empty description="尚无三元组，可在「可视化编辑」中添加或由 kg_upsert_fact 写入" size="small" />
