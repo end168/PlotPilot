@@ -1,62 +1,57 @@
 """Bible Extended Fields API 集成测试"""
+from typing import Optional
+
 import pytest
 from fastapi.testclient import TestClient
-import shutil
-from infrastructure.persistence.storage.file_storage import FileStorage
-from infrastructure.persistence.repositories.file_novel_repository import FileNovelRepository
-from infrastructure.persistence.repositories.file_chapter_repository import FileChapterRepository
-from infrastructure.persistence.repositories.file_bible_repository import FileBibleRepository
+
+from infrastructure.persistence.database.connection import DatabaseConnection
+from infrastructure.persistence.database.sqlite_novel_repository import SqliteNovelRepository
+from infrastructure.persistence.database.sqlite_chapter_repository import SqliteChapterRepository
+from infrastructure.persistence.database.sqlite_bible_repository import SqliteBibleRepository
+from infrastructure.persistence.database.story_node_repository import StoryNodeRepository
 from application.services.novel_service import NovelService
 from application.services.bible_service import BibleService
 from interfaces.api.dependencies import get_novel_service, get_bible_service
 from interfaces.main import app
 
-
-# Global variables to hold test services
 _test_novel_service = None
 _test_bible_service = None
+_test_db: Optional[DatabaseConnection] = None
 
 
 def get_test_novel_service():
-    """Get test novel service"""
     return _test_novel_service
 
 
 def get_test_bible_service():
-    """Get test bible service"""
     return _test_bible_service
 
 
 @pytest.fixture(autouse=True)
 def setup_test_env(tmp_path):
-    """设置测试环境"""
-    global _test_novel_service, _test_bible_service
+    global _test_novel_service, _test_bible_service, _test_db
 
-    test_data = tmp_path / "data"
-    test_data.mkdir()
+    db_path = str(tmp_path / "aitext.db")
+    _test_db = DatabaseConnection(db_path)
+    novel_repo = SqliteNovelRepository(_test_db)
+    chapter_repo = SqliteChapterRepository(_test_db)
+    bible_repo = SqliteBibleRepository(_test_db)
+    story_repo = StoryNodeRepository(db_path)
 
-    # 创建测试存储和仓储
-    storage = FileStorage(test_data)
-    novel_repo = FileNovelRepository(storage)
-    chapter_repo = FileChapterRepository(storage)
-    bible_repo = FileBibleRepository(storage)
-
-    # 创建服务
-    _test_novel_service = NovelService(novel_repo, chapter_repo)
+    _test_novel_service = NovelService(novel_repo, chapter_repo, story_repo)
     _test_bible_service = BibleService(bible_repo)
 
-    # 覆盖依赖
     app.dependency_overrides[get_novel_service] = get_test_novel_service
     app.dependency_overrides[get_bible_service] = get_test_bible_service
 
     yield
 
-    # 清理
     app.dependency_overrides.clear()
     _test_novel_service = None
     _test_bible_service = None
-    if test_data.exists():
-        shutil.rmtree(test_data)
+    if _test_db:
+        _test_db.close()
+        _test_db = None
 
 
 client = TestClient(app)

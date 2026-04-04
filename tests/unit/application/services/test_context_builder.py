@@ -1,353 +1,218 @@
+"""ContextBuilder 单元测试（BibleService + 可选 PlotArcRepository）。"""
+import time
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock
+
+from application.dtos.bible_dto import (
+    BibleDTO,
+    CharacterDTO,
+    TimelineNoteDTO,
+)
 from application.services.context_builder import ContextBuilder
-from domain.bible.entities.character import Character
-from domain.bible.entities.character_registry import CharacterRegistry
-from domain.bible.value_objects.character_id import CharacterId
-from domain.bible.value_objects.character_importance import CharacterImportance
-from domain.bible.value_objects.activity_metrics import ActivityMetrics
+from domain.bible.value_objects.relationship_graph import RelationshipGraph
+from domain.novel.entities.plot_arc import PlotArc
 from domain.novel.entities.storyline import Storyline
 from domain.novel.value_objects.novel_id import NovelId
-from domain.novel.value_objects.storyline_type import StorylineType
+from domain.novel.value_objects.plot_point import PlotPoint, PlotPointType
 from domain.novel.value_objects.storyline_status import StorylineStatus
-from domain.novel.value_objects.event_timeline import EventTimeline
-from domain.novel.value_objects.novel_event import NovelEvent
-from domain.bible.value_objects.relationship_graph import RelationshipGraph
+from domain.novel.value_objects.storyline_type import StorylineType
+from domain.novel.value_objects.storyline_milestone import StorylineMilestone
+from domain.novel.value_objects.tension_level import TensionLevel
 
 
-class TestContextBuilder:
-    """测试上下文构建器"""
+def _empty_bible_dto(
+    novel_id: str = "novel-1",
+    *,
+    characters=None,
+    timeline_notes=None,
+) -> BibleDTO:
+    return BibleDTO(
+        id=f"{novel_id}-bible",
+        novel_id=novel_id,
+        characters=characters or [],
+        world_settings=[],
+        locations=[],
+        timeline_notes=timeline_notes or [],
+        style_notes=[],
+    )
 
-    def test_estimate_tokens(self):
-        """测试 token 估算"""
-        builder = ContextBuilder(
-            character_registry=Mock(),
-            storyline_manager=Mock(),
-            relationship_engine=Mock(),
-            vector_store=Mock(),
-            novel_repository=Mock(),
-            chapter_repository=Mock()
-        )
 
-        # 1 token ≈ 4 chars
-        text = "a" * 400  # 400 chars
-        tokens = builder.estimate_tokens(text)
-        assert 90 <= tokens <= 110  # Should be around 100 tokens
+def _make_builder(
+    *,
+    bible_dto: BibleDTO = None,
+    storyline_manager=None,
+    plot_arc_repository=None,
+    novel_repo=None,
+    chapter_repo=None,
+):
+    bible_service = Mock()
+    bible_service.get_bible_by_novel.return_value = bible_dto or _empty_bible_dto()
 
-    def test_build_context_basic(self):
-        """测试基本上下文构建"""
-        # Arrange
-        char_registry = Mock(spec=CharacterRegistry)
-        char_registry.novel_id = "novel-1"
-
+    if storyline_manager is None:
         storyline_manager = Mock()
-        relationship_engine = Mock()
-        vector_store = Mock()
-        novel_repo = Mock()
-        chapter_repo = Mock()
+        storyline_manager.repository.get_by_novel_id.return_value = []
 
-        # Mock novel
+    if novel_repo is None:
+        novel_repo = Mock()
         novel = Mock()
         novel.title = "Test Novel"
         novel.author = "Test Author"
         novel_repo.get_by_id.return_value = novel
 
-        # Mock storylines
-        storyline = Mock(spec=Storyline)
-        storyline.storyline_type = StorylineType.MAIN_PLOT
-        storyline.status = StorylineStatus.ACTIVE
-        storyline.estimated_chapter_start = 1
-        storyline.estimated_chapter_end = 10
-        storyline.get_pending_milestones.return_value = []
-        storyline_manager.repository.get_by_novel_id.return_value = [storyline]
-
-        # Mock characters
-        char1 = Character(CharacterId("char1"), "Alice", "Protagonist")
-        char_registry.get_characters_for_context.return_value = [char1]
-        char_registry.characters_by_importance = {
-            CharacterImportance.PROTAGONIST: [char1]
-        }
-
-        # Mock chapters
+    if chapter_repo is None:
+        chapter_repo = Mock()
         chapter_repo.list_by_novel.return_value = []
 
-        # Mock relationship graph
-        relationship_engine._graph = RelationshipGraph()
+    return ContextBuilder(
+        bible_service=bible_service,
+        storyline_manager=storyline_manager,
+        relationship_engine=Mock(),
+        vector_store=Mock(),
+        novel_repository=novel_repo,
+        chapter_repository=chapter_repo,
+        plot_arc_repository=plot_arc_repository,
+    )
 
-        builder = ContextBuilder(
-            character_registry=char_registry,
-            storyline_manager=storyline_manager,
-            relationship_engine=relationship_engine,
-            vector_store=vector_store,
-            novel_repository=novel_repo,
-            chapter_repository=chapter_repo
+
+class TestContextBuilder:
+    def test_estimate_tokens(self):
+        builder = _make_builder()
+        text = "a" * 400
+        tokens = builder.estimate_tokens(text)
+        assert 90 <= tokens <= 110
+
+    def test_build_context_basic(self):
+        dto = _empty_bible_dto(
+            characters=[
+                CharacterDTO("char1", "Alice", "Protagonist", []),
+            ]
         )
-
-        # Act
+        builder = _make_builder(bible_dto=dto)
         context = builder.build_context(
             novel_id="novel-1",
             chapter_number=1,
             outline="Alice starts her journey",
-            max_tokens=35000
+            max_tokens=35000,
         )
-
-        # Assert
         assert "Test Novel" in context
         assert "Alice" in context
         assert "Chapter 1" in context
 
     def test_build_context_respects_token_budget(self):
-        """测试遵守 token 预算"""
-        # Arrange
-        char_registry = Mock(spec=CharacterRegistry)
-        char_registry.novel_id = "novel-1"
-
-        storyline_manager = Mock()
-        relationship_engine = Mock()
-        vector_store = Mock()
-        novel_repo = Mock()
-        chapter_repo = Mock()
-
-        # Mock novel
-        novel = Mock()
-        novel.title = "Test Novel"
-        novel.author = "Test Author"
-        novel_repo.get_by_id.return_value = novel
-
-        # Mock storylines
-        storyline_manager.repository.get_by_novel_id.return_value = []
-
-        # Mock many characters with long descriptions
-        chars = []
-        for i in range(100):
-            char = Character(
-                CharacterId(f"char{i}"),
-                f"Character{i}",
-                "Very long description " * 100  # Long description
-            )
-            chars.append(char)
-
-        char_registry.get_characters_for_context.return_value = chars[:10]
-        char_registry.characters_by_importance = {
-            CharacterImportance.PROTAGONIST: chars[:10]
-        }
-
-        # Mock chapters
-        chapter_repo.list_by_novel.return_value = []
-
-        # Mock relationship graph
-        relationship_engine._graph = RelationshipGraph()
-
-        builder = ContextBuilder(
-            character_registry=char_registry,
-            storyline_manager=storyline_manager,
-            relationship_engine=relationship_engine,
-            vector_store=vector_store,
-            novel_repository=novel_repo,
-            chapter_repository=chapter_repo
-        )
-
-        # Act
+        chars = [
+            CharacterDTO(f"c{i}", f"C{i}", "Very long description " * 100, [])
+            for i in range(10)
+        ]
+        builder = _make_builder(bible_dto=_empty_bible_dto(characters=chars))
         context = builder.build_context(
             novel_id="novel-1",
             chapter_number=1,
             outline="Test outline",
-            max_tokens=5000  # Small budget
+            max_tokens=5000,
         )
-
-        # Assert
-        tokens = builder.estimate_tokens(context)
-        assert tokens <= 5500  # Allow 10% margin
+        assert builder.estimate_tokens(context) <= 5500
 
     def test_build_context_includes_recent_chapters(self):
-        """测试包含最近章节"""
-        # Arrange
-        char_registry = Mock(spec=CharacterRegistry)
-        char_registry.novel_id = "novel-1"
-
-        storyline_manager = Mock()
-        relationship_engine = Mock()
-        vector_store = Mock()
-        novel_repo = Mock()
         chapter_repo = Mock()
-
-        # Mock novel
-        novel = Mock()
-        novel.title = "Test Novel"
-        novel.author = "Test Author"
-        novel_repo.get_by_id.return_value = novel
-
-        # Mock storylines
-        storyline_manager.repository.get_by_novel_id.return_value = []
-
-        # Mock characters
-        char_registry.get_characters_for_context.return_value = []
-        char_registry.characters_by_importance = {}
-
-        # Mock recent chapters
         chapter1 = Mock()
         chapter1.number = 1
         chapter1.title = "Chapter 1"
         chapter1.content = "Content of chapter 1"
-
         chapter2 = Mock()
         chapter2.number = 2
         chapter2.title = "Chapter 2"
         chapter2.content = "Content of chapter 2"
-
         chapter_repo.list_by_novel.return_value = [chapter1, chapter2]
 
-        # Mock relationship graph
-        relationship_engine._graph = RelationshipGraph()
-
-        builder = ContextBuilder(
-            character_registry=char_registry,
-            storyline_manager=storyline_manager,
-            relationship_engine=relationship_engine,
-            vector_store=vector_store,
-            novel_repository=novel_repo,
-            chapter_repository=chapter_repo
-        )
-
-        # Act
+        builder = _make_builder(chapter_repo=chapter_repo)
         context = builder.build_context(
             novel_id="novel-1",
             chapter_number=3,
             outline="Test outline",
-            max_tokens=35000
+            max_tokens=35000,
         )
-
-        # Assert
         assert "Chapter 1" in context or "Chapter 2" in context
 
     def test_build_context_includes_storylines(self):
-        """测试包含故事线信息"""
-        # Arrange
-        char_registry = Mock(spec=CharacterRegistry)
-        char_registry.novel_id = "novel-1"
-
-        storyline_manager = Mock()
-        relationship_engine = Mock()
-        vector_store = Mock()
-        novel_repo = Mock()
-        chapter_repo = Mock()
-
-        # Mock novel
-        novel = Mock()
-        novel.title = "Test Novel"
-        novel.author = "Test Author"
-        novel_repo.get_by_id.return_value = novel
-
-        # Mock active storyline
-        storyline = Mock(spec=Storyline)
-        storyline.storyline_type = StorylineType.MAIN_PLOT
-        storyline.status = StorylineStatus.ACTIVE
-        storyline.estimated_chapter_start = 1
-        storyline.estimated_chapter_end = 10
-        storyline.get_pending_milestones.return_value = []
-        storyline_manager.repository.get_by_novel_id.return_value = [storyline]
-
-        # Mock characters
-        char_registry.get_characters_for_context.return_value = []
-        char_registry.characters_by_importance = {}
-
-        # Mock chapters
-        chapter_repo.list_by_novel.return_value = []
-
-        # Mock relationship graph
-        relationship_engine._graph = RelationshipGraph()
-
-        builder = ContextBuilder(
-            character_registry=char_registry,
-            storyline_manager=storyline_manager,
-            relationship_engine=relationship_engine,
-            vector_store=vector_store,
-            novel_repository=novel_repo,
-            chapter_repository=chapter_repo
+        storyline = Storyline(
+            id="sl-1",
+            novel_id=NovelId("novel-1"),
+            storyline_type=StorylineType.MAIN_PLOT,
+            status=StorylineStatus.ACTIVE,
+            estimated_chapter_start=1,
+            estimated_chapter_end=10,
         )
+        repo = Mock()
+        repo.get_by_novel_id.return_value = [storyline]
+        sm = Mock()
+        sm.repository = repo
 
-        # Act
+        builder = _make_builder(storyline_manager=sm)
         context = builder.build_context(
             novel_id="novel-1",
             chapter_number=5,
             outline="Test outline",
-            max_tokens=35000
+            max_tokens=35000,
         )
+        assert "main_plot" in context
+        assert "Active Storylines" in context
 
-        # Assert
-        assert "MAIN" in context or "main" in context.lower()
-        assert "ACTIVE" in context or "active" in context.lower()
+    def test_layer1_includes_plot_arc_and_timeline(self):
+        arc = PlotArc(id="arc-1", novel_id=NovelId("novel-1"))
+        arc.add_plot_point(
+            PlotPoint(1, PlotPointType.OPENING, "开局", TensionLevel.LOW)
+        )
+        arc.add_plot_point(
+            PlotPoint(10, PlotPointType.CLIMAX, "高潮", TensionLevel.PEAK)
+        )
+        plot_repo = Mock()
+        plot_repo.get_by_novel_id.return_value = arc
+
+        notes = [
+            TimelineNoteDTO(
+                id="tn-1", event="元年", time_point="春", description="建都"
+            )
+        ]
+        dto = _empty_bible_dto(timeline_notes=notes)
+
+        builder = _make_builder(bible_dto=dto, plot_arc_repository=plot_repo)
+        context = builder.build_context(
+            novel_id="novel-1",
+            chapter_number=5,
+            outline="mid",
+            max_tokens=35000,
+        )
+        assert "Plot arc (pacing)" in context
+        assert "Expected tension for this chapter" in context
+        assert "Bible timeline notes" in context
+        assert "元年" in context
 
     def test_build_context_performance(self):
-        """测试上下文构建性能（应该 < 2 秒）"""
-        import time
-
-        # Arrange
-        char_registry = Mock(spec=CharacterRegistry)
-        char_registry.novel_id = "novel-1"
-
-        storyline_manager = Mock()
-        relationship_engine = Mock()
-        vector_store = Mock()
-        novel_repo = Mock()
+        chars = [
+            CharacterDTO(f"c{i}", f"C{i}", f"Description {i}", [])
+            for i in range(50)
+        ]
         chapter_repo = Mock()
-
-        # Mock novel
-        novel = Mock()
-        novel.title = "Test Novel"
-        novel.author = "Test Author"
-        novel_repo.get_by_id.return_value = novel
-
-        # Mock storylines
-        storyline_manager.repository.get_by_novel_id.return_value = []
-
-        # Mock many characters
-        chars = []
-        for i in range(1000):
-            char = Character(
-                CharacterId(f"char{i}"),
-                f"Character{i}",
-                f"Description {i}"
-            )
-            chars.append(char)
-
-        char_registry.get_characters_for_context.return_value = chars[:50]
-        char_registry.characters_by_importance = {
-            CharacterImportance.PROTAGONIST: chars[:50]
-        }
-
-        # Mock chapters
         chapters = []
         for i in range(100):
-            chapter = Mock()
-            chapter.number = i + 1
-            chapter.title = f"Chapter {i+1}"
-            chapter.content = f"Content of chapter {i+1}" * 100
-            chapters.append(chapter)
+            ch = Mock()
+            ch.number = i + 1
+            ch.title = f"Chapter {i+1}"
+            ch.content = f"Content {i+1}" * 100
+            chapters.append(ch)
         chapter_repo.list_by_novel.return_value = chapters
 
-        # Mock relationship graph
-        relationship_engine._graph = RelationshipGraph()
-
-        builder = ContextBuilder(
-            character_registry=char_registry,
-            storyline_manager=storyline_manager,
-            relationship_engine=relationship_engine,
-            vector_store=vector_store,
-            novel_repository=novel_repo,
-            chapter_repository=chapter_repo
+        builder = _make_builder(
+            bible_dto=_empty_bible_dto(characters=chars),
+            chapter_repo=chapter_repo,
         )
-
-        # Act
-        start_time = time.time()
+        start = time.time()
         context = builder.build_context(
             novel_id="novel-1",
             chapter_number=50,
             outline="Test outline",
-            max_tokens=35000
+            max_tokens=35000,
         )
-        elapsed_time = time.time() - start_time
-
-        # Assert
-        assert elapsed_time < 2.0  # Should be < 2 seconds
+        assert time.time() - start < 2.0
         assert len(context) > 0

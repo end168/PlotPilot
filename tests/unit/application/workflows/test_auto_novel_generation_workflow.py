@@ -268,3 +268,15 @@ class TestBuildPrompt:
 
         assert "Full context" in prompt.system
         assert "Chapter outline" in prompt.user
+
+    def test_build_prompt_includes_storyline_and_tension(self, workflow):
+        """故事线与情节张力应进入 system，供模型遵守"""
+        prompt = workflow._build_prompt(
+            context="CTX",
+            outline="OL",
+            storyline_context="主线：本章需触及 X",
+            plot_tension="Expected tension: HIGH",
+        )
+        assert "主线" in prompt.system
+        assert "HIGH" in prompt.system
+        assert "CTX" in prompt.system
