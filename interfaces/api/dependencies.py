@@ -515,3 +515,16 @@ def get_voice_fingerprint_service() -> VoiceFingerprintService:
         get_voice_fingerprint_repository(),
         get_voice_vault_repository()
     )
+
+
+def get_macro_refactor_scanner():
+    """获取宏观重构扫描器
+
+    Returns:
+        MacroRefactorScanner 实例
+    """
+    from application.services.macro_refactor_scanner import MacroRefactorScanner
+    from infrastructure.persistence.database.sqlite_narrative_event_repository import SqliteNarrativeEventRepository
+
+    narrative_event_repo = SqliteNarrativeEventRepository(get_database())
+    return MacroRefactorScanner(narrative_event_repo)
