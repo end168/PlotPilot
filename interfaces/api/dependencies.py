@@ -21,6 +21,7 @@ from infrastructure.persistence.database.sqlite_knowledge_repository import Sqli
 from infrastructure.persistence.database.sqlite_bible_repository import SqliteBibleRepository
 from infrastructure.persistence.database.sqlite_storyline_repository import SqliteStorylineRepository
 from infrastructure.persistence.database.sqlite_plot_arc_repository import SqlitePlotArcRepository
+from infrastructure.persistence.database.sqlite_voice_vault_repository import SqliteVoiceVaultRepository
 from infrastructure.persistence.database.story_node_repository import StoryNodeRepository
 from infrastructure.persistence.repositories.file_cast_repository import FileCastRepository
 from infrastructure.persistence.repositories.file_knowledge_repository import FileKnowledgeRepository
@@ -33,6 +34,7 @@ from application.services.chapter_service import ChapterService
 from application.services.bible_service import BibleService
 from application.services.cast_service import CastService
 from application.services.knowledge_service import KnowledgeService
+from application.services.voice_sample_service import VoiceSampleService
 from application.services.context_builder import ContextBuilder
 from application.services.auto_bible_generator import AutoBibleGenerator
 from application.services.auto_knowledge_generator import AutoKnowledgeGenerator
@@ -469,3 +471,21 @@ def get_narrative_entity_state_service() -> "NarrativeEntityStateService":
     narrative_event_repo = SqliteNarrativeEventRepository(get_database())
 
     return NarrativeEntityStateService(entity_base_repo, narrative_event_repo)
+
+
+def get_voice_vault_repository() -> SqliteVoiceVaultRepository:
+    """获取 Voice Vault 仓储（SQLite）
+
+    Returns:
+        SqliteVoiceVaultRepository 实例
+    """
+    return SqliteVoiceVaultRepository(get_database())
+
+
+def get_voice_sample_service() -> VoiceSampleService:
+    """获取文风样本服务
+
+    Returns:
+        VoiceSampleService 实例
+    """
+    return VoiceSampleService(get_voice_vault_repository())
