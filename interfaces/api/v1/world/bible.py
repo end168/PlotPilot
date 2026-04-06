@@ -86,6 +86,15 @@ class CharacterData(BaseModel):
         default_factory=list,
         description="关系列表：字符串或结构化对象",
     )
+    mental_state: Optional[str] = Field(
+        default=None,
+        description="心理状态；省略则保留库中旧值（新角色默认 NORMAL）",
+    )
+    verbal_tic: Optional[str] = Field(default=None, description="口头禅；省略则保留库中旧值")
+    idle_behavior: Optional[str] = Field(
+        default=None,
+        description="待机动作/小动作；省略则保留库中旧值",
+    )
 
 
 class WorldSettingData(BaseModel):

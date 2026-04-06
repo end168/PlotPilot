@@ -21,7 +21,10 @@ class Character(BaseEntity):
         relationships: List[Any] = None,
         public_profile: str = "",
         hidden_profile: str = "",
-        reveal_chapter: int = None
+        reveal_chapter: int = None,
+        mental_state: str = "NORMAL",
+        verbal_tic: str = "",
+        idle_behavior: str = "",
     ):
         super().__init__(id.value)
         self.character_id = id
@@ -31,6 +34,9 @@ class Character(BaseEntity):
         self.public_profile = public_profile
         self.hidden_profile = hidden_profile
         self.reveal_chapter = reveal_chapter
+        self.mental_state = mental_state or "NORMAL"
+        self.verbal_tic = verbal_tic or ""
+        self.idle_behavior = idle_behavior or ""
 
         # 验证 reveal_chapter
         if self.reveal_chapter is not None and self.reveal_chapter < 1:

@@ -11,7 +11,7 @@ from domain.bible.value_objects.character_id import CharacterId
 from domain.novel.value_objects.novel_id import NovelId
 from domain.bible.repositories.bible_repository import BibleRepository
 from domain.shared.exceptions import EntityNotFoundError
-from application.world.dtos.bible_dto import BibleDTO
+from application.world.dtos.bible_dto import BibleDTO, CharacterDTO
 
 if TYPE_CHECKING:
     from application.world.services.bible_location_triple_sync import BibleLocationTripleSyncService
@@ -99,12 +99,62 @@ class BibleService:
             id=CharacterId(character_id),
             name=name,
             description=description,
-            relationships=relationships or []
+            relationships=relationships or [],
         )
         bible.add_character(character)
         self.bible_repository.save(bible)
 
         return BibleDTO.from_domain(bible)
+
+    def update_character_voice_anchors(
+        self,
+        novel_id: str,
+        character_id: str,
+        *,
+        mental_state: str,
+        verbal_tic: str,
+        idle_behavior: str,
+    ) -> CharacterDTO:
+        """更新角色声线锚点（SQLite 行级更新）。"""
+        repo = self.bible_repository
+        if not hasattr(repo, "update_character_anchors"):
+            raise NotImplementedError("仓储不支持角色锚点更新")
+        repo.update_character_anchors(
+            novel_id,
+            character_id,
+            mental_state=mental_state or "NORMAL",
+            verbal_tic=verbal_tic or "",
+            idle_behavior=idle_behavior or "",
+        )
+        bible = self.bible_repository.get_by_novel_id(NovelId(novel_id))
+        if bible is None:
+            raise EntityNotFoundError("Bible", f"for novel {novel_id}")
+        ch = bible.get_character(CharacterId(character_id))
+        if ch is None:
+            raise EntityNotFoundError("Character", character_id)
+        return CharacterDTO.from_domain(ch)
+
+    def build_character_voice_anchor_section(self, novel_id: str) -> str:
+        """供章节/节拍 System 提示：非空锚点拼成一段。"""
+        bible = self.bible_repository.get_by_novel_id(NovelId(novel_id))
+        if not bible:
+            return ""
+        lines: list[str] = []
+        for c in bible.characters:
+            ms = (getattr(c, "mental_state", None) or "").strip()
+            vt = (getattr(c, "verbal_tic", None) or "").strip()
+            ib = (getattr(c, "idle_behavior", None) or "").strip()
+            if not vt and not ib and (not ms or ms.upper() == "NORMAL"):
+                continue
+            parts = [f"- {c.name}"]
+            if ms and ms.upper() != "NORMAL":
+                parts.append(f"心理状态：{ms}")
+            if vt:
+                parts.append(f"口头禅：{vt}")
+            if ib:
+                parts.append(f"待机动作/小动作：{ib}")
+            lines.append(" ".join(parts))
+        return "\n".join(lines) if lines else ""
 
     def add_world_setting(
         self,
@@ -319,13 +369,37 @@ class BibleService:
         bible._timeline_notes = []
         bible._style_notes = []
 
-        # 添加新的人物
+        prev_chars = {c.character_id.value: c for c in bible.characters}
+
+        # 添加新的人物（锚点字段：请求未传则沿用库内旧值，避免整本保存冲掉沙盒写入）
         for char_data in characters:
+            prev = prev_chars.get(char_data.id)
+            if char_data.mental_state is not None:
+                ms = char_data.mental_state or "NORMAL"
+            elif prev is not None:
+                ms = getattr(prev, "mental_state", None) or "NORMAL"
+            else:
+                ms = "NORMAL"
+            if char_data.verbal_tic is not None:
+                vt = char_data.verbal_tic or ""
+            elif prev is not None:
+                vt = getattr(prev, "verbal_tic", None) or ""
+            else:
+                vt = ""
+            if char_data.idle_behavior is not None:
+                ib = char_data.idle_behavior or ""
+            elif prev is not None:
+                ib = getattr(prev, "idle_behavior", None) or ""
+            else:
+                ib = ""
             character = Character(
                 id=CharacterId(char_data.id),
                 name=char_data.name,
                 description=char_data.description,
-                relationships=char_data.relationships
+                relationships=char_data.relationships,
+                mental_state=ms,
+                verbal_tic=vt,
+                idle_behavior=ib,
             )
             bible._characters.append(character)
 

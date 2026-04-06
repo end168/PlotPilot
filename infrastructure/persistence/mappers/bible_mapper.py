@@ -35,7 +35,10 @@ class BibleMapper:
                     "id": char.character_id.value,
                     "name": char.name,
                     "description": char.description,
-                    "relationships": char.relationships
+                    "relationships": char.relationships,
+                    "mental_state": getattr(char, "mental_state", None) or "NORMAL",
+                    "verbal_tic": getattr(char, "verbal_tic", None) or "",
+                    "idle_behavior": getattr(char, "idle_behavior", None) or "",
                 }
                 for char in bible.characters
             ],
@@ -115,7 +118,10 @@ class BibleMapper:
                     id=CharacterId(char_data["id"]),
                     name=char_data["name"],
                     description=char_data["description"],
-                    relationships=char_data.get("relationships", [])
+                    relationships=char_data.get("relationships", []),
+                    mental_state=char_data.get("mental_state") or "NORMAL",
+                    verbal_tic=char_data.get("verbal_tic") or "",
+                    idle_behavior=char_data.get("idle_behavior") or "",
                 )
                 bible.add_character(character)
 

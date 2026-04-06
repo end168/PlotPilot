@@ -53,12 +53,19 @@ class SqliteBibleRepository(BibleRepository):
 
             for char in bible.characters:
                 cid = char.character_id.value
+                ms = getattr(char, "mental_state", None) or "NORMAL"
+                vt = getattr(char, "verbal_tic", None) or ""
+                ib = getattr(char, "idle_behavior", None) or ""
                 conn.execute(
                     """
-                    INSERT INTO bible_characters (id, novel_id, name, description, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO bible_characters (
+                        id, novel_id, name, description,
+                        mental_state, mental_state_reason, verbal_tic, idle_behavior,
+                        created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (cid, novel_id, char.name, char.description or "", now, now),
+                    (cid, novel_id, char.name, char.description or "", ms, "", vt, ib, now, now),
                 )
                 for i, rel in enumerate(char.relationships or []):
                     rid = f"{cid}-rel-{i}-{uuid.uuid4().hex[:6]}"
@@ -185,6 +192,9 @@ class SqliteBibleRepository(BibleRepository):
                     "name": row["name"],
                     "description": row["description"] or "",
                     "relationships": self._rels_for_character(cid),
+                    "mental_state": row.get("mental_state") or "NORMAL",
+                    "verbal_tic": row.get("verbal_tic") or "",
+                    "idle_behavior": row.get("idle_behavior") or "",
                 }
             )
 
@@ -297,3 +307,32 @@ class SqliteBibleRepository(BibleRepository):
     def exists(self, bible_id: str) -> bool:
         r = self.db.fetch_one("SELECT 1 AS o FROM bibles WHERE id = ?", (bible_id,))
         return r is not None
+
+    def update_character_anchors(
+        self,
+        novel_id: str,
+        character_id: str,
+        *,
+        mental_state: str,
+        verbal_tic: str,
+        idle_behavior: str,
+    ) -> None:
+        """仅更新 bible_characters 声线锚点列（不落整本 Bible）。"""
+        row = self.db.fetch_one(
+            "SELECT id FROM bible_characters WHERE novel_id = ? AND id = ?",
+            (novel_id, character_id),
+        )
+        if not row:
+            from domain.shared.exceptions import EntityNotFoundError
+
+            raise EntityNotFoundError("Character", f"{novel_id}/{character_id}")
+        now = self._now()
+        self.db.execute(
+            """
+            UPDATE bible_characters
+            SET mental_state = ?, verbal_tic = ?, idle_behavior = ?, updated_at = ?
+            WHERE novel_id = ? AND id = ?
+            """,
+            (mental_state, verbal_tic, idle_behavior, now, novel_id, character_id),
+        )
+        self.db.get_connection().commit()

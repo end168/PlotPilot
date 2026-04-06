@@ -12,6 +12,9 @@ export interface CharacterDTO {
   relationships: BibleRelationshipEntry[]
   /** AI 生成时的角色定位（主角/配角等） */
   role?: string
+  mental_state?: string
+  verbal_tic?: string
+  idle_behavior?: string
 }
 
 export interface WorldSettingDTO {

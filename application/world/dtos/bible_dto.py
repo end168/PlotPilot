@@ -27,6 +27,9 @@ class CharacterDTO:
     public_profile: str = ""
     hidden_profile: str = ""
     reveal_chapter: Optional[int] = None
+    mental_state: str = "NORMAL"
+    verbal_tic: str = ""
+    idle_behavior: str = ""
 
     def __post_init__(self):
         """验证字段"""
@@ -50,7 +53,10 @@ class CharacterDTO:
             relationships=character.relationships.copy(),
             public_profile=getattr(character, 'public_profile', ''),
             hidden_profile=getattr(character, 'hidden_profile', ''),
-            reveal_chapter=getattr(character, 'reveal_chapter', None)
+            reveal_chapter=getattr(character, 'reveal_chapter', None),
+            mental_state=getattr(character, "mental_state", None) or "NORMAL",
+            verbal_tic=getattr(character, "verbal_tic", None) or "",
+            idle_behavior=getattr(character, "idle_behavior", None) or "",
         )
 
 
