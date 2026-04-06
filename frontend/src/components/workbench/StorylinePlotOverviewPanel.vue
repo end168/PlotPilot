@@ -1,17 +1,32 @@
 <template>
   <div class="spo-panel">
-    <n-alert type="info" :show-icon="true" class="spo-intro" title="故事线 · 情节弧（全书骨架）">
+    <div class="spo-intro">
+      <div class="spo-intro-header">
+        <span class="spo-intro-icon">📊</span>
+        <h4 class="spo-intro-title">故事线 · 情节弧（全书骨架）</h4>
+      </div>
       <ul class="spo-bullets">
         <li><strong>写</strong>：宏观规划（MACRO_PLANNING）或重大转折后人工调整故事线起止章；情节弧关键张力点在此维护。</li>
         <li><strong>读</strong>：幕/章规划（ACT_PLANNING）与生成上下文组装时注入「当前处于哪条线、弧上张力位置」。</li>
       </ul>
-    </n-alert>
+    </div>
 
-    <n-radio-group v-model:value="spoView" size="small" class="spo-mode-switch">
-      <n-radio-button value="charts">图表概览</n-radio-button>
-      <n-radio-button value="storylines">故事线列表与编辑</n-radio-button>
-      <n-radio-button value="plotArc">情节弧（剧情点）编辑</n-radio-button>
-    </n-radio-group>
+    <div class="spo-mode-switch">
+      <n-radio-group v-model:value="spoView" size="small">
+        <n-radio-button value="charts">
+          <span class="mode-icon">📈</span>
+          <span>图表概览</span>
+        </n-radio-button>
+        <n-radio-button value="storylines">
+          <span class="mode-icon">📚</span>
+          <span>故事线列表与编辑</span>
+        </n-radio-button>
+        <n-radio-button value="plotArc">
+          <span class="mode-icon">🎯</span>
+          <span>情节弧（剧情点）编辑</span>
+        </n-radio-button>
+      </n-radio-group>
+    </div>
 
     <n-spin :show="loading" class="spo-spin">
       <div class="spo-view-body">
@@ -247,41 +262,78 @@ watch(deskTick, () => void load())
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px;
-  background: linear-gradient(to bottom, var(--n-color-modal) 0%, rgba(99, 102, 241, 0.02) 100%);
+  padding: 20px 16px;
+  background: linear-gradient(135deg, var(--n-color-modal) 0%, rgba(99, 102, 241, 0.03) 100%);
 }
 
+/* 优化顶部提示信息样式 */
 .spo-intro {
-  margin-bottom: 12px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.08);
+  transition: all 0.3s ease;
 }
 
+.spo-intro:hover {
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.spo-intro-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.spo-intro-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.spo-intro-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--n-text-color-1);
+  letter-spacing: 0.02em;
+}
+
+/* 优化视图切换按钮样式 */
 .spo-mode-switch {
   width: 100%;
-  margin-bottom: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  margin-bottom: 16px;
 }
 
 .spo-mode-switch :deep(.n-radio-group) {
   display: flex;
   flex-wrap: wrap;
   width: 100%;
-  gap: 4px;
+  gap: 8px;
 }
 
 .spo-mode-switch :deep(.n-radio-button) {
   flex: 1 1 auto;
   min-width: 0;
+  border-radius: 10px;
+  transition: all 0.3s ease;
 }
 
 .spo-mode-switch :deep(.n-radio-button__state-border) {
   white-space: normal;
   text-align: center;
-  line-height: 1.25;
-  padding: 6px 8px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.mode-icon {
+  font-size: 14px;
+  margin-right: 4px;
+  opacity: 0.9;
 }
 
 .spo-view-body {
@@ -314,20 +366,31 @@ watch(deskTick, () => void load())
 
 .spo-bullets {
   margin: 0;
-  padding-left: 1.2rem;
-  font-size: 12px;
-  line-height: 1.65;
+  padding-left: 1.3rem;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--n-text-color-2);
+}
+
+.spo-bullets li {
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.spo-bullets li:last-child {
+  margin-bottom: 0;
 }
 
 .spo-spin {
   width: 100%;
 }
 
+/* 优化甘特图样式 */
 .gantt-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0;
+  gap: 12px;
+  padding: 8px 0;
   margin: 0;
 }
 
@@ -344,14 +407,19 @@ watch(deskTick, () => void load())
 .gantt-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 32px;
-  padding: 4px 0;
-  transition: transform 0.2s ease;
+  gap: 12px;
+  min-height: 36px;
+  padding: 6px 0;
+  border-radius: 8px;
+  transition: all 0.25s ease;
 }
 
 .gantt-row:hover {
-  transform: translateX(2px);
+  background: rgba(99, 102, 241, 0.04);
+  padding-left: 4px;
+  padding-right: 4px;
+  margin-left: -4px;
+  margin-right: -4px;
 }
 
 .gantt-label {
@@ -374,27 +442,52 @@ watch(deskTick, () => void load())
 
 .gantt-track {
   flex: 1;
-  height: 16px;
-  background: linear-gradient(to right, rgba(24, 160, 88, 0.08), rgba(24, 160, 88, 0.12));
-  border-radius: 8px;
+  height: 18px;
+  background: linear-gradient(90deg, rgba(24, 160, 88, 0.06) 0%, rgba(24, 160, 88, 0.1) 50%, rgba(24, 160, 88, 0.06) 100%);
+  border-radius: 9px;
   position: relative;
   min-width: 0;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.gantt-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.15), transparent);
+  border-radius: 9px 9px 0 0;
 }
 
 .gantt-bar {
   position: absolute;
-  top: 2px;
+  top: 3px;
   height: 12px;
   border-radius: 6px;
   background: linear-gradient(135deg, #36ad6a 0%, #18a058 100%);
-  min-width: 6px;
-  box-shadow: 0 2px 6px rgba(24, 160, 88, 0.3);
-  transition: box-shadow 0.2s ease;
+  min-width: 8px;
+  box-shadow: 0 2px 8px rgba(24, 160, 88, 0.35);
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.gantt-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), transparent);
+  border-radius: 6px 6px 0 0;
 }
 
 .gantt-bar:hover {
-  box-shadow: 0 3px 10px rgba(24, 160, 88, 0.45);
+  box-shadow: 0 4px 16px rgba(24, 160, 88, 0.5);
+  transform: translateY(-1px);
 }
 
 .chart-wrap {
@@ -410,13 +503,14 @@ watch(deskTick, () => void load())
   padding-top: 8px !important;
 }
 
+/* 优化张力曲线样式 */
 .tension-svg {
   width: 100%;
   max-width: 800px;
   height: auto;
-  min-height: 140px;
+  min-height: 160px;
   display: block;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+  filter: drop-shadow(0 3px 8px rgba(24, 160, 88, 0.12));
   margin: 0 auto;
 }
 
@@ -425,23 +519,26 @@ watch(deskTick, () => void load())
   white-space: nowrap;
 }
 
+/* 优化卡片样式 */
 .spo-panel :deep(.n-card) {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.3s ease;
-  /* 不用 overflow:hidden，避免裁切 SVG 网格线与圆角内阴影断线 */
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(99, 102, 241, 0.08);
   overflow: visible;
 }
 
 .spo-panel :deep(.n-card:hover) {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 28px rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.15);
+  transform: translateY(-1px);
 }
 
 .spo-panel :deep(.n-card-header) {
-  padding: 12px 16px !important;
+  padding: 14px 18px !important;
   font-weight: 600;
-  border-bottom: 1px solid var(--n-border-color);
-  background: rgba(99, 102, 241, 0.02);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(139, 92, 246, 0.02) 100%);
 }
 
 .spo-panel :deep(.n-card-header__main) {
@@ -457,7 +554,7 @@ watch(deskTick, () => void load())
 }
 
 .spo-panel :deep(.n-card__content) {
-  padding: 12px 16px !important;
+  padding: 14px 18px !important;
 }
 
 .spo-panel :deep(.spo-empty-inline.n-empty) {

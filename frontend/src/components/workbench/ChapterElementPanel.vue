@@ -81,16 +81,45 @@
 
           <n-card
             v-if="currentChapterNumber && showBeatsCard"
-            title="节拍"
+            title="节拍规划"
             size="small"
             :bordered="true"
             class="ce-card-beats"
           >
-            <n-text v-if="beatSourceHint" depth="3" class="ce-card-lead">{{ beatSourceHint }}</n-text>
-            <ol v-if="beatLines.length" class="ce-beat-list">
-              <li v-for="(line, bi) in beatLines" :key="bi">{{ line }}</li>
-            </ol>
-            <n-empty v-else description="暂无节拍；可在叙事知识中为本章填写 beat_sections，或在结构树大纲用多行书写" size="small" />
+            <n-tabs type="segment" size="small" animated>
+              <n-tab-pane name="macro" tab="🎬 宏观节拍">
+                <n-text depth="3" class="ce-card-lead">
+                  来自章节大纲，用于叙事摘要和向量检索
+                </n-text>
+                <ol v-if="beatLines.length" class="ce-beat-list">
+                  <li v-for="(line, bi) in beatLines" :key="bi">{{ line }}</li>
+                </ol>
+                <n-empty v-else description="暂无宏观节拍；可在叙事知识中为本章填写 beat_sections，或在结构树大纲用多行书写" size="small" />
+              </n-tab-pane>
+              
+              <n-tab-pane name="micro" tab="🎭 微观节拍">
+                <n-text depth="3" class="ce-card-lead">
+                  写作时智能拆分，控制节奏和感官细节（来自守护进程日志）
+                </n-text>
+                <n-space v-if="microBeats.length" vertical :size="8" style="margin-top: 12px">
+                  <div v-for="(beat, i) in microBeats" :key="i" class="micro-beat-item">
+                    <div class="micro-beat-header">
+                      <n-tag :type="getBeatTypeColor(beat.focus)" size="small" round>
+                        {{ beat.focus }}
+                      </n-tag>
+                      <n-text strong style="margin-left: 8px">Beat {{ i + 1 }}</n-text>
+                      <n-text depth="3" style="margin-left: 8px; font-size: 12px">
+                        ({{ beat.target_words }}字)
+                      </n-text>
+                    </div>
+                    <div class="micro-beat-desc">
+                      {{ beat.description }}
+                    </div>
+                  </div>
+                </n-space>
+                <n-empty v-else description="微观节拍在章节生成时自动创建，当前章节暂无数据" size="small" />
+              </n-tab-pane>
+            </n-tabs>
           </n-card>
 
           <n-card
@@ -487,6 +516,28 @@ const beatSourceHint = computed(() => {
   return ''
 })
 
+// 微观节拍数据结构
+interface MicroBeat {
+  description: string
+  target_words: number
+  focus: string // 'sensory' | 'dialogue' | 'action' | 'emotion'
+}
+
+// TODO: 从守护进程日志或API获取微观节拍数据
+// 当前使用模拟数据，实际需要从后端API获取
+const microBeats = ref<MicroBeat[]>([])
+
+// 根据focus类型返回标签颜色
+const getBeatTypeColor = (focus: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
+  const colorMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
+    sensory: 'info',      // 感官 - 蓝色
+    dialogue: 'success',  // 对话 - 绿色
+    action: 'warning',    // 动作 - 黄色
+    emotion: 'error',     // 情绪 - 红色
+  }
+  return colorMap[focus] || 'default'
+}
+
 const hasSummaryBlock = computed(() => {
   if (!props.currentChapterNumber) return false
   const k = knowledgeChapter.value
@@ -645,6 +696,41 @@ onMounted(async () => {
 .ce-scroll {
   flex: 1;
   min-height: 0;
+}
+
+/* 微观节拍样式 */
+.micro-beat-item {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(139, 92, 246, 0.02) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.micro-beat-item:hover {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(139, 92, 246, 0.04) 100%);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.08);
+}
+
+.micro-beat-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.micro-beat-desc {
+  margin-top: 6px;
+  padding-left: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--n-text-color-2);
+  border-left: 2px solid var(--n-border-color);
+  padding-left: 12px;
+}
+
+.micro-beat-item:hover .micro-beat-desc {
+  border-left-color: var(--n-primary-color);
 }
 .ce-item {
   display: flex;
