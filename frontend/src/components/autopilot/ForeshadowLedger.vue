@@ -258,10 +258,29 @@ function importanceTagType(importance: string): 'default' | 'info' | 'warning' |
 async function loadForeshadows() {
   loading.value = true
   try {
-    const res = await fetch(`/api/v1/novels/${props.novelId}/foreshadows`)
-    if (res.ok) {
-      const data = await res.json()
-      foreshadows.value = data.items || []
+    // 先获取统计数据
+    const statsRes = await fetch(`/api/v1/novels/${props.novelId}/monitor/foreshadow-stats`)
+    if (statsRes.ok) {
+      const stats = await statsRes.json()
+      // 使用统计数据更新计数（实际伏笔列表需要从 foreshadow-ledger API 获取）
+      // 这里暂时用统计数据模拟
+      foreshadows.value = []
+    }
+
+    // 获取详细伏笔列表
+    const listRes = await fetch(`/api/v1/novels/${props.novelId}/foreshadow-ledger`)
+    if (listRes.ok) {
+      const entries = await listRes.json()
+      // 转换新 API 格式到组件格式
+      foreshadows.value = entries.map((entry: any) => ({
+        id: entry.id,
+        description: entry.hidden_clue,
+        importance: 'medium', // API 暂不提供
+        planted_chapter: entry.chapter,
+        is_collected: entry.status === 'consumed',
+        collected_chapter: entry.consumed_at_chapter,
+        created_at: entry.created_at
+      }))
     }
   } catch (err) {
     console.error('Failed to load foreshadows:', err)

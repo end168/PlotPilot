@@ -60,10 +60,15 @@ const lowTensionChapters = computed(() => {
 async function loadTensionData() {
   loading.value = true
   try {
-    const res = await fetch(`/api/v1/novels/${props.novelId}/tension-history`)
+    const res = await fetch(`/api/v1/novels/${props.novelId}/monitor/tension-curve`)
     if (res.ok) {
       const data = await res.json()
-      tensionData.value = data.tension_history || []
+      // 转换新 API 格式到组件格式
+      tensionData.value = (data.points || []).map((p: any) => ({
+        chapter_number: p.chapter,
+        tension_score: p.tension,
+        title: p.title
+      }))
 
       // 触发低张力警告
       if (lowTensionChapters.value.length > 0) {

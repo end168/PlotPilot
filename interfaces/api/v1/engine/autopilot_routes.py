@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -111,6 +112,113 @@ async def get_autopilot_status(novel_id: str):
         "progress_pct": round(len(completed) / novel.target_chapters * 100, 1) if novel.target_chapters else 0,
         "needs_review": novel.current_stage.value == "paused_for_review",
     }
+
+
+@router.get("/{novel_id}/stream")
+async def autopilot_log_stream(novel_id: str):
+    """
+    SSE 实时日志流（用于监控大盘）
+
+    推送 beat 级别的事件日志：
+    - beat_start: 开始生成某个 beat
+    - beat_complete: beat 生成完成
+    - beat_error: beat 生成失败
+    - stage_change: 阶段变更
+    """
+    novel_repo = get_novel_repository()
+
+    async def event_generator():
+        last_stage = None
+        last_beat = None
+
+        while True:
+            try:
+                novel = novel_repo.get_by_id(NovelId(novel_id))
+                if not novel:
+                    break
+
+                current_stage = novel.current_stage.value
+                current_beat = getattr(novel, "current_beat_index", 0)
+
+                # 检测阶段变更
+                if last_stage is not None and current_stage != last_stage:
+                    event = {
+                        "type": "stage_change",
+                        "message": f"阶段变更: {last_stage} → {current_stage}",
+                        "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "from_stage": last_stage,
+                            "to_stage": current_stage
+                        }
+                    }
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                # 检测 beat 变更（表示上一个 beat 完成）
+                if last_beat is not None and current_beat > last_beat:
+                    event = {
+                        "type": "beat_complete",
+                        "message": f"Beat {last_beat} 生成完成",
+                        "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "beat_index": last_beat,
+                            "act": novel.current_act
+                        }
+                    }
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                    # 新 beat 开始
+                    event = {
+                        "type": "beat_start",
+                        "message": f"开始生成 Beat {current_beat}",
+                        "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "beat_index": current_beat,
+                            "act": novel.current_act
+                        }
+                    }
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                # 检测错误
+                error_count = getattr(novel, "consecutive_error_count", 0)
+                if error_count > 0:
+                    event = {
+                        "type": "beat_error",
+                        "message": f"生成遇到错误（连续 {error_count} 次）",
+                        "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "error_count": error_count
+                        }
+                    }
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                last_stage = current_stage
+                last_beat = current_beat
+
+                # 终止条件
+                terminal_states = {"stopped", "error", "completed"}
+                if novel.autopilot_status.value in terminal_states:
+                    event = {
+                        "type": "autopilot_complete",
+                        "message": f"自动驾驶已{novel.autopilot_status.value}",
+                        "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "status": novel.autopilot_status.value
+                        }
+                    }
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    break
+
+                await asyncio.sleep(2)  # 每2秒检查一次
+
+            except Exception as e:
+                logger.error(f"SSE log stream error: {e}")
+                break
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 
 @router.get("/{novel_id}/events")

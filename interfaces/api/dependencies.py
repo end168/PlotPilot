@@ -768,3 +768,13 @@ def get_chapter_review_service():
         llm_service=llm_service
     )
 
+
+def get_foreshadow_ledger_service():
+    """获取伏笔台账服务
+
+    Returns:
+        伏笔台账服务实例
+    """
+    from application.analyst.services.foreshadow_ledger_service import ForeshadowLedgerService
+    return ForeshadowLedgerService(get_foreshadowing_repository())
+
