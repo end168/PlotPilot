@@ -18,6 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 def _sanitize_llm_json_output(raw: str) -> str:
+    """清除 LLM 输出中的 ANSI 颜色码和 thinking 标签，提取 JSON 块。
+
+    Args:
+        raw: LLM 原始输出
+
+    Returns:
+        清理后的 JSON 字符串
+    """
     content = (raw or "").strip()
     content = re.sub(r"\x1b\[[0-9;]*m", "", content)
     content = re.sub(r"<think\|?>.*?</think\|?>", "", content, flags=re.DOTALL)
@@ -30,6 +38,14 @@ def _sanitize_llm_json_output(raw: str) -> str:
 
 
 def _extract_outer_json_object(text: str) -> str:
+    """从文本中提取最外层 JSON 对象。
+
+    Args:
+        text: 包含 JSON 的文本
+
+    Returns:
+        提取的 JSON 对象字符串
+    """
     start = text.find("{")
     end = text.rfind("}")
     if start == -1:
@@ -40,6 +56,14 @@ def _extract_outer_json_object(text: str) -> str:
 
 
 def _repair_json_string(text: str) -> str:
+    """修复不完整的 JSON 字符串，补充缺失的闭合括号。
+
+    Args:
+        text: 可能不完整的 JSON 字符串
+
+    Returns:
+        修复后的 JSON 字符串
+    """
     text = text.strip()
     if not text:
         return text
@@ -95,11 +119,9 @@ def _repair_json_string(text: str) -> str:
             result.append('"')
 
         repaired = "".join(result).rstrip()
-        while repaired.endswith(","):
-            repaired = repaired[:-1].rstrip()
+        repaired = repaired.rstrip(',')
         while stack:
-            while repaired.endswith(","):
-                repaired = repaired[:-1].rstrip()
+            repaired = repaired.rstrip(',')
             repaired += stack.pop()
         return repaired
 
@@ -120,6 +142,17 @@ def _repair_json_string(text: str) -> str:
 
 
 def _parse_llm_json_to_dict(raw: str) -> Dict[str, Any]:
+    """解析 LLM 返回的原始字符串为字典。
+
+    Args:
+        raw: LLM 原始输出
+
+    Returns:
+        解析后的字典
+
+    Raises:
+        json.JSONDecodeError: 解析失败时
+    """
     cleaned = _sanitize_llm_json_output(raw)
     cleaned = _extract_outer_json_object(cleaned)
     cleaned = _repair_json_string(cleaned)
@@ -158,6 +191,14 @@ def _map_location_kind(raw_type: str) -> str:
 
 
 def _default_location_importance(_loc_data: Dict[str, Any]) -> str:
+    """返回地点的默认重要性等级。
+
+    Args:
+        _loc_data: 地点数据字典
+
+    Returns:
+        重要性等级，默认为 "normal"
+    """
     return "normal"
 
 
@@ -198,11 +239,20 @@ class AutoBibleGenerator:
             if normalized_raw_id and normalized_raw_id not in raw_to_final:
                 raw_to_final[normalized_raw_id] = location_id
 
+            name = loc_data.get("name", "")
+            description = loc_data.get("description", "")
+            if not name or not description:
+                logger.warning(
+                    "Location entry missing required fields during normalization: raw_id=%s, name_present=%s, description_present=%s",
+                    raw_id,
+                    bool(name),
+                    bool(description),
+                )
             prepared.append(
                 {
                     "location_id": location_id,
-                    "name": loc_data["name"],
-                    "description": loc_data["description"],
+                    "name": name,
+                    "description": description,
                     "location_type": loc_data.get("type", "场景"),
                     "connections": loc_data.get("connections", []),
                     "raw_parent_id": loc_data.get("parent_id"),
@@ -593,6 +643,7 @@ JSON 格式（不要有其他文字）：
                     name=loc_data["name"],
                     description=loc_data["description"],
                     location_type=loc_data["location_type"],
+                    connections=loc_data.get("connections"),
                     parent_id=loc_data["parent_id"],
                 )
                 logger.info(f"Location saved: {loc_data['location_id']}")
